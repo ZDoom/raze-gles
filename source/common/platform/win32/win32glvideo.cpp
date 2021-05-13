@@ -53,6 +53,7 @@
 #include "win32glvideo.h"
 
 #include "gl_framebuffer.h"
+#include "gles_framebuffer.h"
 
 extern "C" {
 HGLRC zd_wglCreateContext(HDC Arg1);
@@ -105,7 +106,11 @@ DFrameBuffer *Win32GLVideo::CreateFrameBuffer()
 {
 	SystemGLFrameBuffer *fb;
 
-	fb = new OpenGLRenderer::OpenGLFrameBuffer(m_hMonitor, vid_fullscreen);
+	if (Args->CheckParm("-gles2_renderer"))
+		fb = new OpenGLESRenderer::OpenGLFrameBuffer(m_hMonitor, vid_fullscreen);
+	else
+		fb = new OpenGLRenderer::OpenGLFrameBuffer(m_hMonitor, vid_fullscreen);
+
 	return fb;
 }
 

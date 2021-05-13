@@ -50,7 +50,8 @@
 
 #include "gl_renderer.h"
 #include "gl_framebuffer.h"
-
+#include "gles_framebuffer.h"
+ 
 #ifdef HAVE_VULKAN
 #include "vulkan/system/vk_framebuffer.h"
 #endif
@@ -449,14 +450,13 @@ DFrameBuffer *SDLVideo::CreateFrameBuffer ()
 			device = new VulkanDevice();
 			fb = new VulkanFrameBuffer(nullptr, vid_fullscreen, device);
 		}
-		catch (CVulkanError const &error)
+		catch (CVulkanError const&)
 		{
 			if (Priv::window != nullptr)
 			{
 				Priv::DestroyWindow();
 			}
 
-			Printf(TEXTCOLOR_RED "Initialization of Vulkan failed: %s\n", error.what());
 			Priv::vulkanEnabled = false;
 		}
 	}
@@ -470,7 +470,10 @@ DFrameBuffer *SDLVideo::CreateFrameBuffer ()
 #endif
 	if (fb == nullptr)
 	{
-		fb = new OpenGLRenderer::OpenGLFrameBuffer(0, vid_fullscreen);
+	  	if( Args->CheckParm ("-gles2_renderer") )
+			fb = new OpenGLESRenderer::OpenGLFrameBuffer(0, vid_fullscreen);
+		else
+			fb = new OpenGLRenderer::OpenGLFrameBuffer(0, vid_fullscreen);
 	}
 
 	return fb;
