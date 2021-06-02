@@ -8,6 +8,7 @@
 CVAR(Bool, gles_use_mapped_buffer, false, 0);
 CVAR(Bool, gles_force_glsl_v100, false, 0);
 CVAR(Int, gles_max_lights_per_surface, 32, 0);
+EXTERN_CVAR(Bool, gl_customshader);
 
 
 #if USE_GLES2
@@ -164,18 +165,22 @@ namespace OpenGLESRenderer
 		gles.modelstring = (char*)glGetString(GL_RENDERER);
 		gles.vendorstring = (char*)glGetString(GL_VENDOR);
 	
-#if USE_GLES2
+		gl_customshader = false;
+
+		GLint maxTextureSize[1];
+		glGetIntegerv(GL_MAX_TEXTURE_SIZE, maxTextureSize);
+
+		gles.max_texturesize = maxTextureSize[0];
 		
+		Printf("GL_MAX_TEXTURE_SIZE: %d\n", gles.max_texturesize);
+
+#if USE_GLES2
 		gles.depthStencilAvailable = CheckExtension("GL_OES_packed_depth_stencil");
 		gles.npotAvailable = CheckExtension("GL_OES_texture_npot");
-
-		gles.max_texturesize = 1024 * 2;
 #else
 		gles.depthStencilAvailable = true;
 		gles.npotAvailable = true;
 		gles.useMappedBuffers = true;
-
-		gles.max_texturesize = 1024 * 2;
 #endif
 		
 		gles.numlightvectors = (gles.maxlights * LIGHT_VEC4_NUM);

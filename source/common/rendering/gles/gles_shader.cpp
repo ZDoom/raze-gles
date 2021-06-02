@@ -394,25 +394,9 @@ bool FShader::Load(const char * name, const char * vert_prog_lump_, const char *
 
 	bool lightbuffertype = screen->mLights->GetBufferType();
 	unsigned int lightbuffersize = screen->mLights->GetBlockSize();
-	if (!lightbuffertype)
-	{
-		vp_comb.Format("#version 100\n#define NUM_UBO_LIGHTS %d\n#define NO_CLIPDISTANCE_SUPPORT\n", lightbuffersize);
-	}
-	/*
-	else
-	{
-		// This differentiation is for Intel which do not seem to expose the full extension, even if marked as required.
-		if (gles.glslversion < 4.3f)
-			vp_comb = "#version 400 core\n#extension GL_ARB_shader_storage_buffer_object : require\n#define SHADER_STORAGE_LIGHTS\n";
-		else
-			vp_comb = "#version 430 core\n#define SHADER_STORAGE_LIGHTS\n";
-	}
 
-	if (gl.flags & RFL_SHADER_STORAGE_BUFFER)
-	{
-		vp_comb << "#define SUPPORTS_SHADOWMAPS\n";
-	}
-	*/
+	vp_comb.Format("#version 100\n#define NUM_UBO_LIGHTS %d\n#define NO_CLIPDISTANCE_SUPPORT\n", lightbuffersize);
+
 	FString fp_comb = vp_comb;
 	vp_comb << defines << i_data.GetChars();
 	fp_comb << "$placeholder$\n" << defines << i_data.GetChars();
@@ -690,10 +674,9 @@ bool FShader::Bind(ShaderFlavourData& flavour)
 {
 	uint32_t tag = CreateShaderTag(flavour);
 
+	auto pos = variants.find(tag);
 
-	cur = variants[tag];
-
-	if (!cur)
+	if (pos == variants.end())
 	{
 		FString variantConfig = "\n";
 
@@ -731,7 +714,14 @@ bool FShader::Bind(ShaderFlavourData& flavour)
 
 		Load(mName.GetChars(), mVertProg, mFragProg, mFragProg2, mLightProg, mDefinesBase + variantConfig);
 
-		variants[tag] = cur;
+		if (variants.insert(std::make_pair(tag, cur)).second == false)
+		{
+			Printf("ERROR INSERTING");
+		}
+	}
+	else
+	{
+		cur = pos->second;
 	}
 
 	GLRenderer->mShaderManager->SetActiveShader(this->cur);

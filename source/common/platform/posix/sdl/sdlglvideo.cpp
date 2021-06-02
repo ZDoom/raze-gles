@@ -450,13 +450,14 @@ DFrameBuffer *SDLVideo::CreateFrameBuffer ()
 			device = new VulkanDevice();
 			fb = new VulkanFrameBuffer(nullptr, vid_fullscreen, device);
 		}
-		catch (CVulkanError const&)
+		catch (CVulkanError const &error)
 		{
 			if (Priv::window != nullptr)
 			{
 				Priv::DestroyWindow();
 			}
 
+			Printf(TEXTCOLOR_RED "Initialization of Vulkan failed: %s\n", error.what());
 			Priv::vulkanEnabled = false;
 		}
 	}
@@ -470,7 +471,7 @@ DFrameBuffer *SDLVideo::CreateFrameBuffer ()
 #endif
 	if (fb == nullptr)
 	{
-	  	if( Args->CheckParm ("-gles2_renderer") )
+		if( (Args->CheckParm ("-gles2_renderer")) || (vid_preferbackend == 3) )
 			fb = new OpenGLESRenderer::OpenGLFrameBuffer(0, vid_fullscreen);
 		else
 			fb = new OpenGLRenderer::OpenGLFrameBuffer(0, vid_fullscreen);
