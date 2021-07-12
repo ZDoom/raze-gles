@@ -201,7 +201,7 @@ vec4 getTexel(vec2 st)
 #if (DEF_BLEND_FLAGS != 0)	
 
 	// only apply the texture manipulation if it contains something.
-	texel = ApplyTextureManipulation(texel, DEF_BLEND_FLAGS);
+	texel = ApplyTextureManipulation(texel);
 
 #endif
 
@@ -275,6 +275,7 @@ float R_ZDoomColormap(float light, float z)
 //===========================================================================
 float R_DoomLightingEquation(float light)
 {
+#ifndef PALETTE_EMULATION
 	// z is the depth in view space, positive going into the screen
 	float z;
 
@@ -301,6 +302,9 @@ float R_DoomLightingEquation(float light)
 
 	// Result is the normalized colormap index (0 bright .. 1 dark)
 	return clamp(colormap, 0.0, 31.0) / 32.0;
+#else
+	return 0.0;	// with palette emulation we do not want real lighting.
+#endif
 }
 
 

@@ -135,7 +135,7 @@ bool FGLRenderState::ApplyShader()
 	flavour.texFlags = mTextureModeFlags; if (!mBrightmapEnabled) flavour.texFlags &= ~(TEXF_Brightmap | TEXF_Glowmap);
 	flavour.texFlags >>= 16; //Move flags to start of word
 
-	flavour.blendFlags = (int)(mStreamData.uTextureAddColor.a + 0.01);
+	flavour.blendFlags = ((int)(mStreamData.uTextureAddColor.a + 0.01) & 0x3fff);
 
 	flavour.twoDFog = false;
 	flavour.fogEnabled = false;
