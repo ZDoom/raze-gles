@@ -138,7 +138,23 @@ unsigned int FHardwareTexture::CreateTexture(unsigned char * buffer, int w, int 
 #else
 	sourcetype = GL_BGRA;
 	texformat = GL_RGBA;
+
+	if (glTextureBytes > 0)
+	{
+		if (glTextureBytes < 4) glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		static const int ITypes[] = { GL_R8, GL_RG8, GL_RGB8, GL_RGBA8 };
+		static const int STypes[] = { GL_RED, GL_RG, GL_BGR, GL_BGRA };
+
+		texformat = ITypes[glTextureBytes - 1];
+		sourcetype = STypes[glTextureBytes - 1];
+	}
+	else
+	{
+		sourcetype = GL_BGRA;
+	}
+
 #endif
+
 	glTexImage2D(GL_TEXTURE_2D, 0, texformat, rw, rh, 0, sourcetype, GL_UNSIGNED_BYTE, buffer);
 
 	if (deletebuffer && buffer) free(buffer);
