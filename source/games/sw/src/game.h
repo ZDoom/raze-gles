@@ -2237,7 +2237,6 @@ struct GameInterface : public ::GameInterface
     void LoadGameTextures();
     void loadPalette();
     void clearlocalinputstate() override;
-    void FreeGameData() override;
     void FreeLevelData() override;
     bool GenerateSavePic() override;
 	void MenuSound(EMenuSounds snd) override;
@@ -2274,6 +2273,7 @@ struct GameInterface : public ::GameInterface
     void LeavePortal(spritetype* viewer, int type) override;
     int Voxelize(int sprnum);
     void ExitFromMenu() override;
+    int GetCurrentSkill() override;
 
 
     GameStats getStats() override;

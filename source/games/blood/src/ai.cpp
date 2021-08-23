@@ -177,7 +177,7 @@ bool CanMove(spritetype *pSprite, int a2, int nAngle, int nRange)
         // It makes ignore danger if enemy immune to N damageType. As result Cerberus start acting like
         // in Blood 1.0 so it can move normally to player. It's up to you for adding rest of enemies here as
         // i don't think it will broke something in game.
-        if (!VanillaMode() && Crusher && isImmune(pSprite, pXSector->damageType, 16)) return true;
+        if (!cl_bloodvanillaenemies && !VanillaMode() && Crusher && isImmune(pSprite, pXSector->damageType, 16)) return true;
         fallthrough__;
     case kDudeZombieButcher:
     case kDudeSpiderBrown:
@@ -896,10 +896,23 @@ int aiDamageSprite(DBloodActor* source, DBloodActor* actor, DAMAGE_TYPE nDmgType
         spritetype *pSource = &source->s();
         int nSource = pSource->index;
         if (pSprite == pSource) return 0;
-        else if (pXSprite->target == -1 || (nSource != pXSprite->target && Chance(pSprite->type == pSource->type ? nDamage*pDudeInfo->changeTargetKin : nDamage*pDudeInfo->changeTarget)))
+        else if (pXSprite->target == -1) // if no target, give the dude a target
         {
             aiSetTarget(pXSprite, nSource);
             aiActivateDude(&bloodActors[pXSprite->reference]);
+        }
+        else if (nSource != pXSprite->target) // if found a new target, retarget
+        {
+            int nThresh = nDamage;
+            if (pSprite->type == pSource->type)
+                nThresh *= pDudeInfo->changeTargetKin;
+            else
+                nThresh *= pDudeInfo->changeTarget;
+            if (Chance(nThresh))
+            {
+                aiSetTarget(pXSprite, nSource);
+                aiActivateDude(&bloodActors[pXSprite->reference]);
+            }
         }
 
         #ifdef NOONE_EXTENSIONS
@@ -1020,6 +1033,7 @@ int aiDamageSprite(DBloodActor* source, DBloodActor* actor, DAMAGE_TYPE nDmgType
             DUDEEXTRA *pDudeExtra = &gDudeExtra[pSprite->extra];
             pDudeExtra->recoil = 1;
         }
+        const bool fixRandomCultist = !cl_bloodvanillaenemies && (pSprite->inittype >= kDudeBase) && (pSprite->inittype < kDudeMax) && !VanillaMode(); // fix burning cultists randomly switching types underwater
         switch (pSprite->type)
         {
         case kDudeCultistTommy:
@@ -1066,12 +1080,16 @@ int aiDamageSprite(DBloodActor* source, DBloodActor* actor, DAMAGE_TYPE nDmgType
             if (Chance(0x600) && (pXSprite->medium == kMediumWater || pXSprite->medium == kMediumGoo))
             {
                 pSprite->type = kDudeCultistTommy;
+                if (fixRandomCultist) // fix burning cultists randomly switching types underwater
+                    pSprite->type = pSprite->inittype; // restore back to spawned cultist type
                 pXSprite->burnTime = 0;
                 aiNewState(actor, &cultistSwimGoto);
             }
             else if (pXSprite->medium == kMediumWater || pXSprite->medium == kMediumGoo)
             {
                 pSprite->type = kDudeCultistShotgun;
+                if (fixRandomCultist) // fix burning cultists randomly switching types underwater
+                    pSprite->type = pSprite->inittype; // restore back to spawned cultist type
                 pXSprite->burnTime = 0;
                 aiNewState(actor, &cultistSwimGoto);
             }
@@ -1092,8 +1110,16 @@ int aiDamageSprite(DBloodActor* source, DBloodActor* actor, DAMAGE_TYPE nDmgType
         case kDudeTinyCaleb:
             if (nDmgType == kDamageBurn && pXSprite->health <= (unsigned int)pDudeInfo->fleeHealth/* && (pXSprite->at17_6 != 1 || pXSprite->at17_6 != 2)*/)
             {
-                pSprite->type = kDudeBurningInnocent;
-                aiNewState(actor, &cultistBurnGoto);
+                if (!cl_bloodvanillaenemies && !VanillaMode()) // fix burning sprite for tiny caleb
+                {
+                    pSprite->type = kDudeBurningTinyCaleb;
+                    aiNewState(actor, &tinycalebBurnGoto);
+                }
+                else
+                {
+                    pSprite->type = kDudeBurningInnocent;
+                    aiNewState(actor, &cultistBurnGoto);
+                }
                 aiPlay3DSound(pSprite, 361, AI_SFX_PRIORITY_0, -1);
                 gDudeExtra[pSprite->extra].time = PlayClock+360;
                 actHealDude(pXSprite, dudeInfo[39].startHealth, dudeInfo[39].startHealth);
@@ -1415,7 +1441,7 @@ void aiThinkTarget(DBloodActor* actor)
     }
 }
 
-void sub_5F15C(spritetype *pSprite, XSPRITE *pXSprite)
+void aiLookForTarget(spritetype *pSprite, XSPRITE *pXSprite)
 {
     assert(pSprite->type >= kDudeBase && pSprite->type < kDudeMax);
     DUDEINFO *pDudeInfo = getDudeInfo(pSprite->type);
@@ -1453,8 +1479,9 @@ void sub_5F15C(spritetype *pSprite, XSPRITE *pXSprite)
         }
         if (pXSprite->state)
         {
-            uint8_t va4[(kMaxSectors+7)>>3];
-            GetClosestSpriteSectors(pSprite->sectnum, pSprite->x, pSprite->y, 400, va4);
+            uint8_t sectmap[(kMaxSectors+7)>>3];
+            const bool newSectCheckMethod = !cl_bloodvanillaenemies && !VanillaMode(); // use new sector checking logic
+            GetClosestSpriteSectors(pSprite->sectnum, pSprite->x, pSprite->y, 400, sectmap, nullptr, newSectCheckMethod);
 
             int nSprite2;
             StatIterator it(kStatDude);
@@ -1492,10 +1519,10 @@ void aiProcessDudes(void) {
         if (IsPlayerSprite(pSprite) || pXSprite->health == 0) continue;
         pXSprite->stateTimer = ClipLow(pXSprite->stateTimer-4, 0);
 
-        if (pXSprite->aiState->moveFunc)
+        if (pXSprite->aiState && pXSprite->aiState->moveFunc)
             pXSprite->aiState->moveFunc(&bloodActors[pXSprite->reference]);
 
-        if (pXSprite->aiState->thinkFunc && (gFrameCount & 3) == (nSprite & 3))
+        if (pXSprite->aiState && pXSprite->aiState->thinkFunc && (gFrameCount & 3) == (nSprite & 3))
             pXSprite->aiState->thinkFunc(&bloodActors[pXSprite->reference]);
 
         switch (pSprite->type) {
@@ -1505,7 +1532,7 @@ void aiProcessDudes(void) {
                 GENDUDEEXTRA* pExtra = &gGenDudeExtra[pSprite->index];
                 if (pExtra->slaveCount > 0) updateTargetOfSlaves(pSprite);
                 if (pExtra->nLifeLeech >= 0) updateTargetOfLeech(pSprite);
-                if (pXSprite->stateTimer == 0 && pXSprite->aiState->nextState
+                if (pXSprite->stateTimer == 0 && pXSprite->aiState && pXSprite->aiState->nextState
                     && (pXSprite->aiState->stateTicks > 0 || seqGetStatus(3, pSprite->extra) < 0)) {
                     aiGenDudeNewState(pSprite, pXSprite->aiState->nextState);
                 }
@@ -1517,7 +1544,7 @@ void aiProcessDudes(void) {
             }
             #endif
             default:
-                if (pXSprite->stateTimer == 0 && pXSprite->aiState->nextState) {
+                if (pXSprite->stateTimer == 0 && pXSprite->aiState && pXSprite->aiState->nextState) {
                     if (pXSprite->aiState->stateTicks > 0)
                         aiNewState(actor, pXSprite->aiState->nextState);
                     else if (seqGetStatus(3, nXSprite) < 0)
@@ -1813,6 +1840,10 @@ void aiInitSprite(spritetype *pSprite)
 
             // make dude follow the markers
             bool uwater = spriteIsUnderwater(pSprite);
+            if (pXSprite->target <= 0 || sprite[pXSprite->target].type != kMarkerPath) {
+                pXSprite->target = -1; aiPatrolSetMarker(pSprite, pXSprite);
+            }
+
             if (stateTimer > 0) {
                 if (uwater) aiPatrolState(pSprite, kAiStatePatrolWaitW);
                 else if (pXSprite->unused1 & kDudeFlagCrouch) aiPatrolState(pSprite, kAiStatePatrolWaitC);

@@ -7045,7 +7045,7 @@ void MultiPlayLimits(void)
 
         MapRecord *next = nullptr;
         next = FindNextMap(currentLevel);
-		ChangeLevel(next, -1);
+		ChangeLevel(next, g_nextskill);
     }
 }
 
@@ -7202,11 +7202,11 @@ domovethings(void)
         {
             FinishTimer = 0;
 			MapRecord *map = nullptr;
-			if (FinishAnim == ANIM_SUMO)
+			if (FinishAnim == ANIM_SUMO || FinishAnim == ANIM_SERP)
 			{
 				map = FindNextMap(currentLevel);
 			}
-			ChangeLevel(map, -1);
+			ChangeLevel(map, g_nextskill, true);
         }
     }
 }

@@ -102,8 +102,8 @@ void SetWeapons(bool stat)
         {
             // Keep the pitchfork to avoid freeze
             gMe->hasWeapon[1] = 1;
-            gMe->curWeapon = 0;
-            gMe->nextWeapon = 1;
+            gMe->curWeapon = kWeapNone;
+            gMe->nextWeapon = kWeapPitchFork;
         }
         viewSetMessage(GStrings("TXTB_NOWEAP"));
     }
@@ -267,7 +267,8 @@ static int parseArgs(char *pzArgs, int *nArg1, int *nArg2)
     if (!nArg1 || !nArg2 || strlen(pzArgs) < 3)
         return -1;
 	*nArg1 = pzArgs[0] - '0';
-	*nArg2 = (pzArgs[1] - '0')*10+(pzArgs[2]-'0');
+    int a1 = pzArgs[1] == ' ' ? 0 : pzArgs[1] - '0';
+    *nArg2 = a1 * 10 + (pzArgs[2] - '0');
     return 2;
 }
 
@@ -399,8 +400,8 @@ const char* GameInterface::GenericCheat(int player, int cheat)
         powerupActivate(gMe, kPwUpDeliriumShroom);
         gMe->pXSprite->health = 16;
         gMe->hasWeapon[1] = 1;
-        gMe->curWeapon = 0;
-        gMe->nextWeapon = 1;
+        gMe->curWeapon = kWeapNone;
+        gMe->nextWeapon = kWeapPitchFork;
         break;
 
     default:
@@ -421,7 +422,7 @@ static bool cheatMario(cheatseq_t* c)
     if (parseArgs((char*)c->Args, &nEpisode, &nLevel) == 2)
 	{
 		auto map = FindMapByIndex(nEpisode, nLevel);
-		if (map) DeferedStartGame(map, -1);
+		if (map) DeferredStartGame(map, g_nextskill);
 	}
     return true;
 }

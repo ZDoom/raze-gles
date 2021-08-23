@@ -722,7 +722,7 @@ void playerStart(int nPlayer, int bNewLevel)
     gFullMap = 0;
     pPlayer->throwPower = 0;
     pPlayer->deathTime = 0;
-    pPlayer->nextWeapon = 0;
+    pPlayer->nextWeapon = kWeapNone;
     xvel[pSprite->index] = yvel[pSprite->index] = zvel[pSprite->index] = 0;
     pInput->avel = 0;
     pInput->actions = 0;
@@ -739,7 +739,9 @@ void playerStart(int nPlayer, int bNewLevel)
     pPlayer->handTime = 0;
     pPlayer->weaponTimer = 0;
     pPlayer->weaponState = 0;
-    pPlayer->weaponQav = -1;
+    pPlayer->weaponQav = kQAVNone;
+    pPlayer->qavLastTick = 0;
+    pPlayer->qavTimer = 0;
     #ifdef NOONE_EXTENSIONS
     playerQavSceneReset(pPlayer); // reset qav scene
     
@@ -792,9 +794,9 @@ void playerReset(PLAYER *pPlayer)
         pPlayer->weaponMode[i] = 0;
     }
     pPlayer->hasWeapon[1] = 1;
-    pPlayer->curWeapon = 0;
+    pPlayer->curWeapon = kWeapNone;
     pPlayer->qavCallback = -1;
-    pPlayer->newWeapon = 1;
+    pPlayer->newWeapon = kWeapPitchFork;
     for (int i = 0; i < 14; i++)
     {
         pPlayer->weaponOrder[0][i] = dword_136400[i];
@@ -811,8 +813,10 @@ void playerReset(PLAYER *pPlayer)
         pPlayer->armor[i] = 0;
     pPlayer->weaponTimer = 0;
     pPlayer->weaponState = 0;
-    pPlayer->weaponQav = -1;
+    pPlayer->weaponQav = kQAVNone;
     pPlayer->qavLoop = 0;
+    pPlayer->qavLastTick = 0;
+    pPlayer->qavTimer = 0;
     pPlayer->packItemId = -1;
 
     for (int i = 0; i < 5; i++) {
@@ -1317,14 +1321,14 @@ void ProcessInput(PLAYER *pPlayer)
     POSTURE *pPosture = &pPlayer->pPosture[pPlayer->lifeMode][pPlayer->posture];
     InputPacket *pInput = &pPlayer->input;
 
+    // Originally, this was never able to be true due to sloppy input code in the original game.
+    // Allow it to become true behind a CVAR to offer an alternate playing experience if desired.
+    pPlayer->isRunning = !!(pInput->actions & SB_RUN) && !cl_bloodvanillarun;
+
     if ((pInput->actions & SB_BUTTON_MASK) || pInput->fvel || pInput->svel || pInput->avel)
         pPlayer->restTime = 0;
     else if (pPlayer->restTime >= 0)
         pPlayer->restTime += 4;
-
-    // This was just too broken. Every single place in the game depending on 'isRunning' will misbehave if this is set because originally it never worked as intended.
-    pPlayer->isRunning = false;// !!(pInput->actions& SB_RUN) && pPlayer->restTime <= 10;
-
     WeaponProcess(pPlayer);
     if (pXSprite->health == 0)
     {
@@ -1548,8 +1552,10 @@ void ProcessInput(PLAYER *pPlayer)
         doslopetilting(pPlayer);
     }
 
-    // disable synchronised input if set by game.
+    // disable synchronised input and input locks if set by game.
     resetForcedSyncInput();
+    pPlayer->angle.unlockinput();
+    pPlayer->horizon.unlockinput();
 
     pPlayer->slope = -pPlayer->horizon.horiz.asq16() >> 9;
     if (pInput->actions & SB_INVPREV)
@@ -1664,8 +1670,7 @@ void playerProcess(PLAYER *pPlayer)
     {
         if (pXSprite->height < 256)
         {
-            // taking a cue from BloodGDX here. Apparently due to poor coding in the original game this could never be true.
-            bool running = false;// pPlayer->isRunning; 
+            bool running = pPlayer->isRunning && !cl_bloodvanillabobbing;
             pPlayer->bobAmp = (pPlayer->bobAmp+pPosture->pace[running]*4) & 2047;
             pPlayer->swayAmp = (pPlayer->swayAmp+(pPosture->pace[running]*4)/2) & 2047;
             if (running)
@@ -1963,7 +1968,7 @@ int playerDamageSprite(DBloodActor* source, PLAYER *pPlayer, DAMAGE_TYPE nDamage
         }
         pPlayer->deathTime = 0;
         pPlayer->qavLoop = 0;
-        pPlayer->curWeapon = 0;
+        pPlayer->curWeapon = kWeapNone;
         pPlayer->fraggerId = nSource;
         pPlayer->voodooTargets = 0;
         if (nDamageType == kDamageExplode && nDamage < (9<<4))
@@ -2129,7 +2134,7 @@ void PlayerSurvive(int, DBloodActor* actor)
                 sprintf(buffer, "%s lives again!", PlayerName(pPlayer->nPlayer));
                 viewSetMessage(buffer);
             }
-            pPlayer->newWeapon = 1;
+            pPlayer->newWeapon = kWeapPitchFork;
         }
     }
 }
@@ -2248,6 +2253,8 @@ FSerializer& Serialize(FSerializer& arc, const char* keyname, PLAYER& w, PLAYER*
             .Array("weaponorder", &w.weaponOrder[0][0], 14*2)
             .Array("ammocount", w.ammoCount, countof(w.ammoCount))
             ("qavloop", w.qavLoop)
+            ("qavlastTick", w.qavLastTick)
+            ("qavtimer", w.qavTimer)
             ("fusetime", w.fuseTime)
             ("throwtime", w.throwTime)
             ("throwpower", w.throwPower)
