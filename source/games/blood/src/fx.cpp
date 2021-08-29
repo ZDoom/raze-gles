@@ -165,7 +165,8 @@ spritetype * CFX::fxSpawn(FX_ID nFx, int nSector, int x, int y, int z, unsigned 
             return NULL;
         destroy(nSprite);
     }
-    spritetype *pSprite = actSpawnSprite_(nSector, x, y, z, 1, 0);
+    auto actor = actSpawnSprite(nSector, x, y, z, 1, 0);
+    spritetype* pSprite = &actor->s();
     pSprite->type = nFx;
     pSprite->picnum = pFX->picnum;
     pSprite->cstat |= pFX->cstat;
@@ -204,7 +205,7 @@ void CFX::fxProcess(void)
         assert(nSector >= 0 && nSector < kMaxSectors);
         assert(pSprite->type < kFXMax);
         FXDATA *pFXData = &gFXData[pSprite->type];
-        actAirDrag(pSprite, pFXData->drag);
+        actAirDrag(&bloodActors[pSprite->index], pFXData->drag);
         if (xvel[nSprite])
             pSprite->x += xvel[nSprite]>>12;
         if (yvel[nSprite])
