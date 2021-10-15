@@ -1,3 +1,7 @@
+This repository is forked from https://github.com/coelckers/raze
+
+* It is now being archived for the purposes of keeping the commit history of the work done prior to its merge into Raze, proper. The "oldmaster" branch has this history. The new master is updated to Raze's most recent official release as of the time of archiving.
+
 # Welcome to Raze!
 
 [![Build Status](https://github.com/coelckers/Raze/workflows/Continuous%20Integration/badge.svg)](https://github.com/coelckers/Raze/actions?query=workflow%3A%22Continuous+Integration%22)
